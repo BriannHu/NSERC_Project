@@ -84,6 +84,13 @@
 #include "utilities/merge_operators/sortlist.h"
 #include "utilities/persistent_cache/block_cache_tier.h"
 
+#include "util/zipf.h"
+#include "util/latest-generator.h"
+#include "util/json_serializer.h"
+
+#include <time.h>
+
+
 #ifdef MEMKIND
 #include "memory/memkind_kmem_allocator.h"
 #endif
@@ -98,6 +105,7 @@ using GFLAGS_NAMESPACE::SetUsageMessage;
 
 DEFINE_string(
     benchmarks,
+    "brianbenchmark2,"
     "fillseq,"
     "fillseqdeterministic,"
     "fillsync,"
@@ -3262,6 +3270,18 @@ class Benchmark {
         method = &Benchmark::RandomWithVerify;
       } else if (name == "fillseekseq") {
         method = &Benchmark::WriteSeqSeekSeq;
+
+      /********************************************************/
+      
+      } else if (name == "brianbenchmark2") {
+        method = &Benchmark::BrianBenchmark2;
+      } else if (name == "initcolfams") {
+        method = &Benchmark::InitializeColumnFamilies;
+      } else if (name == "clearcolfams") {
+        method = &Benchmark::ClearColumnFamilies;
+      
+      /********************************************************/
+
       } else if (name == "compact") {
         method = &Benchmark::Compact;
       } else if (name == "compactall") {
@@ -5209,6 +5229,763 @@ class Benchmark {
     }
     delete iter;
     thread->stats.AddBytes(bytes);
+  }
+
+   /* Assumes no column families are created so far.
+    * Opens DB with only default column family.
+    * Creates four column families (corresponding to four maps).
+    * Closes DB.
+    */
+  void InitializeColumnFamilies(ThreadState* thread) {
+    std::string kDBPath = "/home/bhu15/NSERC/storage/db_bench_tool";
+    if (db_.db == nullptr) {
+        fprintf(stderr, "NULL POINTER ERROR\n");
+        exit(1);         }
+    Options options;
+    options.create_if_missing = false;
+    
+    DBWithColumnFamilies* db_with_cfh = SelectDBWithCfh(thread);
+    Status s;
+    
+    std::vector<ColumnFamilyDescriptor> column_families;
+    std::vector<ColumnFamilyHandle*> handles;
+    
+    column_families.push_back(ColumnFamilyDescriptor(kDefaultColumnFamilyName, Colum     nFamilyOptions()));
+    std::cout << "Opening database with only default column family... ";
+    s = DB::Open(Options(), kDBPath, column_families, &handles, &db_with_cfh->db);
+    
+    assert(s.ok());
+    std::cout << "SUCCESS" << std::endl;
+    
+    std::cout << "Creating 4 column family handles... ";
+    ColumnFamilyHandle *PA_cfh, *PUTS_cfh, *UATS_cfh, *UAS_cfh;
+    s = db_with_cfh->db->CreateColumnFamily(ColumnFamilyOptions(), "PA_cf", &PA_cfh)     ;
+    s = db_with_cfh->db->CreateColumnFamily(ColumnFamilyOptions(), "PUTS_cf", &PUTS_     cfh);
+    s = db_with_cfh->db->CreateColumnFamily(ColumnFamilyOptions(), "UATS_cf", &UATS_     cfh);
+    s = db_with_cfh->db->CreateColumnFamily(ColumnFamilyOptions(), "UAS_cf", &UAS_cf     h);
+    std::cout << "SUCCESS" << std::endl;
+    
+    delete db_with_cfh->db;
+  }
+
+
+   /* Assumes all four column families are created so far.
+    * Opens DB with all column families.
+    * Drops column families and deletes handles..
+    * Closes DB.
+    */
+  void ClearColumnFamilies(ThreadState* thread) {
+    std::string kDBPath = "/home/bhu15/NSERC/storage/db_bench_tool";
+    if (db_.db == nullptr) {
+            fprintf(stderr, "NULL POINTER ERROR\n");
+            exit(1);
+    }
+    Options options;
+    options.create_if_missing = false;
+    
+    DBWithColumnFamilies* db_with_cfh = SelectDBWithCfh(thread);
+    Status s;
+    
+    std::vector<ColumnFamilyDescriptor> column_families;
+    std::vector<ColumnFamilyHandle*> handles;
+
+    column_families.push_back(ColumnFamilyDescriptor(kDefaultColumnFamilyName, Colum     nFamilyOptions()));
+    column_families.push_back(ColumnFamilyDescriptor("PA_cf", ColumnFamilyOptions())     );
+    column_families.push_back(ColumnFamilyDescriptor("PUTS_cf", ColumnFamilyOptions(     )));
+    column_families.push_back(ColumnFamilyDescriptor("UATS_cf", ColumnFamilyOptions(     )));
+    column_families.push_back(ColumnFamilyDescriptor("UAS_cf", ColumnFamilyOptions()     ));
+    std::cout << "Opening database with four column families... ";
+    s = DB::Open(Options(), kDBPath, column_families, &handles, &db_with_cfh->db);
+    
+    if (handles.size() == 0) {
+            std::cout << "FAIL" << std::endl;
+            std::cout << "Column families vector incorrect... make sure column famil     ies are initialized and not already cleared." << std::endl;
+            exit(1);
+    }
+
+    assert(s.ok());
+    std::cout << "SUCCESS" << std::endl;
+    
+    std::cout << "Destroying 4 column family handles... ";
+    // destroy cfs and handles
+    for (auto handle: handles) {
+        s = db_with_cfh->db->DropColumnFamily(handle);
+        s = db_with_cfh->db->DestroyColumnFamilyHandle(handle);
+    }
+    std::cout << "SUCCESS" << std::endl;
+
+    //delete db_with_cfh->db; // causes strange delay
+  }
+
+  // map 1
+  std::string update_annotation_vector(std::string a_list, long new_value) {
+    std::string result = a_list.substr(0, a_list.size()-1) + "," + std::to_string(ne     w_value) + "]";
+    return result;
+  }
+
+
+  // map 4
+  std::string update_single_map(std::string a_map, long key, long value) {
+    std::string result = "";
+    std::string temp_key = "";
+    std::string target_key = std::to_string(key);
+    std::string target_val = std::to_string(value);
+    int curr = 0;
+    for (char& c : a_map) {
+        curr++;
+        temp_key += c;
+        if (c == '{' || c == ',')
+                temp_key="";
+        if (temp_key==target_key) {
+
+            std::string remainder = a_map.substr(curr+1, a_map.size()-curr);
+            std::string old_val="";
+            int digits = 0;
+            for (char& e : remainder) {
+                digits++;
+                if (e == ',' || e == '}') break;
+                old_val += e;
+            }
+            std::string updated_val = std::to_string(atol(old_val.c_str()) +      value);
+            result = a_map.substr(0, curr+1) + updated_val + a_map.substr(cu     rr+digits, a_map.size()-curr-digits);
+            return result;
+        }
+    }
+    result = a_map.substr(0, a_map.size()-1) + "," + target_key + ":" + target_val +      "}";
+    return result;
+   }
+
+
+   // map 2 & 3
+   // format is {123456:{1:([__] | 1), 2:([__] | 1)};}
+   // semi colon outer delimiter, commoa inner delimiter, | separates pair elements
+  std::string update_nested_map(std::string a_map, long outer_key, long inner_key, std::st     ring new_time) {
+    std::string result = "";
+    std::string temp_key = "";
+    std::string outer_target_key = std::to_string(outer_key);
+    std::string inner_target_key = std::to_string(inner_key);
+    int curr = 0;
+    for (char& c : a_map) {
+        curr++;
+        temp_key += c;
+        if (c == '{' || c == ';')
+            temp_key = "";
+        if (temp_key==outer_target_key) {
+            std::string temp_inner_key = "";
+            int outer_curr = curr; // tracks when outer key is first matched
+            std::string remainder = a_map.substr(curr+1, a_map.size()-curr);
+            for (char& e : remainder) {
+                curr++;
+                temp_inner_key += e;
+                if (e == '{' || e == ',')
+                    temp_inner_key = "";
+                if (temp_inner_key == inner_target_key) {
+                    std::string remainder2 = a_map.substr(curr+1, a_     map.size()-curr);
+                    
+                    for (char& i : remainder2) {
+                        curr++;
+                        if (i == '|') break;
+                    }
+                    // INSERT NEW TIME assuming list.size() > 0
+                    result = a_map.substr(0, curr-1)  + "," + new_ti     me + a_map.substr(curr-1, a_map.size());
+                    std::string remainder3 = a_map.substr(curr+1, a_     map.size()-curr);
+
+                    std::string old_counter = "";
+                    int digits = 0;
+                    for (char& i : remainder3) {
+                        digits++;
+                        if (i == ')') break;
+                        old_counter += i;
+                    }
+                    std::string new_counter = std::to_string(atol(ol     d_counter.c_str())+1);
+                    result = a_map.substr(0, curr-1) + "," + new_tim     e + "|" + new_counter + a_map.substr(curr+digits, a_map.size());
+
+                    return result;
+                }
+            }
+            // inner key not found (action never performed before)
+            result = a_map.substr(0, outer_curr+2) + inner_target_key + ":"      + "([" + new_time + "]|1)," + a_map.substr(outer_curr+2, a_map.size());
+            return result;
+        }
+    } // outer key not found (only in map 2, new image id)
+    result = a_map.substr(0, a_map.size()-1) + ";" + outer_target_key + ":{" + inner     _target_key + ":([" + new_time + "]|1)}}";
+    return result;
+  }
+
+
+  std::string update_single_vector_map(std::string a_map, long key, long value) {
+    std::string result = "";
+    std::string temp_key = "";
+    std::string target_key = std::to_string(key);
+    std::string target_val = std::to_string(value);
+    int curr = 0;
+    for (char& c : a_map) {
+        curr++;
+        temp_key += c;
+        if (c == '{' || c == ',')
+            temp_key=""; // reset temp key
+        
+        if (temp_key==target_key) { // time to insert value
+            result = a_map.substr(0, curr+2) + target_val + "," + a_map.subs     tr(curr+2, a_map.size()-curr);
+            return result;
+        }
+    }
+    result = a_map.substr(0, a_map.size()-1) + "," + target_key + ":[" + target_val      + "]}";
+    return result;
+  }
+
+  void BrianBenchmark2(ThreadState* thread) {
+    std::string kDBPath = "/home/bhu15/NSERC/storage/db_bench_tool";
+    if (db._db == nullptr) {
+      fprintf(stderr, "Null pointer error.\n");
+      exit(1)
+    }
+
+    Options options;
+    options.create_if_missing = false;
+
+    DBWithColumnFamilies* db_with_cfh = SelectDBWithCfh(thread);
+    Status s;
+
+    std::vector<std::string> cf_names;
+    std::vector<ColumnFamilyDescriptor> column_families;
+    std::vector<ColumnFamilyHandle*> handles;
+
+    s = DB::ListColumnFamilies(DBOptions(), kDBPath, &cf_names);
+
+     // if column families are not yet initialized
+    if (cf_names.size() == 1) {
+        InitializeColumnFamilies(thread);
+        s = DB::ListColumnFamilies(DBOptions(), kDBPath, &cf_names);
+    }
+
+    std::cout << "---CURRENT COLUMN FAMILIES---" << std::endl;
+    for (const auto& item : cf_names) {
+        std::cout << "Name: " << item  << std::endl;
+    }
+
+    column_families.push_back(ColumnFamilyDescriptor(kDefaultColumnFamilyName, Colum     nFamilyOptions()));
+    column_families.push_back(ColumnFamilyDescriptor("PA_cf", ColumnFamilyOptions())     );
+    column_families.push_back(ColumnFamilyDescriptor("PUTS_cf", ColumnFamilyOptions(     )));
+    column_families.push_back(ColumnFamilyDescriptor("UATS_cf", ColumnFamilyOptions(     )));
+    column_families.push_back(ColumnFamilyDescriptor("UAS_cf", ColumnFamilyOptions()     ));
+    s = DB::Open(Options(), kDBPath, column_families, &handles, &db_with_cfh->db);
+
+    std::cout << "HANDLES SIZE: " <<  handles.size() << std::endl;
+
+    if (handles.size() != 5) {
+        std::cout << "Error: Handles not populated. Make sure the column familie     s are initialized." << std::endl;
+        xit(1);
+    }
+
+
+    // initializes necessary generators
+    init_latestgen(FLAGS_num);
+    init_zipf_generator(0, FLAGS_num);
+    Duration duration(FLAGS_duration, 0);
+
+    // PRINTS PARAMETER INFO
+    printf("\n--------------BENCHMARK PARAMETERS--------------\n");
+    printf("Max users               : %10" PRId64 "\n", FLAGS_users);
+    printf("Max pictures            : %10" PRId64 "\n", FLAGS_pictures);
+    printf("Max annotations         : %10" PRId64 "\n", FLAGS_annotations);
+    printf("Max annotations/picture : %10d\n", FLAGS_pic_annotations);
+    printf("Popular users           : %10f\n", FLAGS_popular_users);
+
+    // initializes action variables
+    int64_t users_done = 0;
+    int64_t views = 0;
+    int64_t likes = 0;
+    int64_t shares = 0;
+    int64_t adds = 0;
+
+    // initializes operation variables
+    int64_t found = 0;
+    int64_t reads_done = 0;
+    int64_t writes_done = 0;
+    std::unordered_map<int, std::vector<long>> picture_store;
+
+    clock_t start, end;
+    double cpu_time_used;
+
+    // starting timer
+    start = clock();
+
+    // creates logging directory if necessary
+    int systemRet;
+    systemRet = system("mkdir -p LOG_FILES");
+    systemRet = system("mkdir -p LOG_FILES/GENERAL_FILES");
+    systemRet = system("mkdir -p LOG_FILES/MAP1_FILES");
+    systemRet = system("mkdir -p LOG_FILES/MAP2_FILES");
+    systemRet = system("mkdir -p LOG_FILES/MAP3_FILES");
+    systemRet = system("mkdir -p LOG_FILES/MAP4_FILES");
+    if (systemRet == -1) {
+        fprintf(stderr, "Error: Log directory could not be created.\n");
+    }
+
+    // opening log file to write to
+    char filename[200];
+    char time_text[100];
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    strftime(time_text, sizeof(time_text), "%F_%H:%M:%S", t);
+    snprintf(filename, sizeof(filename), "LOG_FILES/GENERAL_FILES/%s.txt", time_text     );
+
+    char map1_filename[200];
+    char map2_filename[200];
+    char map3_filename[200];
+    char map4_filename[200];
+
+    snprintf(map1_filename, sizeof(map1_filename), "LOG_FILES/MAP1_FILES/%s.txt", ti     me_text);
+    snprintf(map2_filename, sizeof(map2_filename), "LOG_FILES/MAP2_FILES/%s.txt", ti     me_text);
+    snprintf(map3_filename, sizeof(map3_filename), "LOG_FILES/MAP3_FILES/%s.txt", ti     me_text);
+    snprintf(map4_filename, sizeof(map4_filename), "LOG_FILES/MAP4_FILES/%s.txt", ti     me_text);
+
+    FILE *fp = fopen(filename, "w");
+    FILE *fp1 = fopen(map1_filename, "w");
+    FILE *fp2 = fopen(map2_filename, "w");
+    FILE *fp3 = fopen(map3_filename, "w");
+    FILE *fp4 = fopen(map4_filename, "w");
+
+    while (!duration.Done(1)) {
+
+        /* 1. choose random user */
+        int current_user = thread->rand.Next() % FLAGS_users;
+        users_done++;
+
+        /* 2. choose action for user
+              a) View picture   (60%)
+              b) Like picture   (20%)
+              c) Share picture  (15%)
+              d) Add picture    (5%) */
+        long action = thread->rand.Next() % 100;
+        char action_type[100];
+        char status[50];
+        char sequence[1000];
+
+        /* 3. choose picture to perform action on */
+        long current_picture = thread->rand.Next() % FLAGS_pictures;
+
+        
+        /* 4. create annotations for picture if DNE */
+        int count=0;
+        char annotations[200] = "";
+        std::vector<long> annotation_list;
+
+        // if picture already exists
+        if (picture_store.find(current_picture) != picture_store.end()) {
+            annotation_list = picture_store.at(current_picture);
+            for (int i=0; i<FLAGS_pic_annotations; i++) {
+                char buffer[50];
+                if (i == FLAGS_pic_annotations-1)
+                    snprintf(buffer, sizeof(buffer), "%ld", annotati     on_list[i]);
+                else
+                    snprintf(buffer, sizeof(buffer), "%ld, ", annota     tion_list[i]);
+                strcat(annotations, buffer);
+            }
+            strcpy(status, "EXISTING");
+        } else {
+            // generate annotations using Zipfian
+            while (count < FLAGS_pic_annotations) {
+                long k = nextValue() % FLAGS_annotations;
+                annotation_list.push_back(k);
+                char buffer[50];
+                if (count == FLAGS_pic_annotations-1)
+                    snprintf(buffer, sizeof(buffer), "%ld", k);
+                else
+                    snprintf(buffer, sizeof(buffer), "%ld, ", k);
+                strcat(annotations, buffer);
+                count++;
+            }
+            std::pair<int, std::vector<long>> picture_pair(current_picture,      annotation_list);
+            picture_store.insert(picture_pair);
+            strcpy(status, "NEW");
+
+            // CREATING MAP 1
+            // map 1 will never need to be updated
+            std::string MAP1_KEY = std::to_string(current_picture);
+            std::string MAP1_VALUE  = long_vector_to_string(annotation_list)     ;
+            s = db_with_cfh->db->Put(WriteOptions(), handles[1], Slice(MAP1_     KEY), Slice(MAP1_VALUE));
+            if (s.ok()) {
+                writes_done++;
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, k     Write);
+            }
+
+            // WRITING MAP 1
+            fputs(MAP1_KEY.c_str(), fp1);
+            fputs("->", fp1);
+            fputs(MAP1_VALUE.c_str(), fp1);
+            fputs("\n", fp1);
+        }
+
+        long CURRENT_ACTION = -1;
+
+        std::vector<std::string> TIMESTAMPS;
+        char new_time[100];
+        time_t new_now = time(NULL);
+        struct tm *t1 = localtime(&new_now);
+        strftime(new_time, sizeof(new_time), "%F_%H:%M:%S", t1);
+        TIMESTAMPS.push_back(new_time);
+        std::pair<std::vector<std::string>, long> INNER_PAIR(TIMESTAMPS, 1);
+
+        std::map<long, std::pair<std::vector<std::string>, long>> ACTION_MAP;
+        std::map<long, std::map<long, std::pair<std::vector<std::string>, long>>     > MAP2;
+
+        // INITIALIZING MAP 4
+        std::map<long, long> MAP4;
+        
+        if (action < 60) {
+                // view
+                views++;
+                CURRENT_ACTION = 1;
+                MAP4[1] += 1;
+                strcpy(action_type, "VIEW");
+        } else if (action >= 60 && action < 80) {
+                // like
+                likes++;
+                CURRENT_ACTION = 2;
+                MAP4[2] += 2;
+                strcpy(action_type, "LIKE");
+        } else if (action >= 80 && action < 95) {
+                // share
+                shares++;
+                CURRENT_ACTION = 3;
+                MAP4[3] += 3;
+                strcpy(action_type, "SHARE");
+        } else {
+                // add
+                adds++;
+                CURRENT_ACTION = 4;
+                MAP4[4] += 4;
+                strcpy(action_type, "ADD");
+        }
+
+         // WRITING TO GENERAL FILE
+        snprintf(sequence, sizeof(sequence), "User [%d] performed [%s] on [%s] p     icture [%ld] with annotations [%s].\n", current_user, action_type, status, current_pictu     re, annotations);
+        fputs(sequence, fp);
+        
+        // CREATING MAP 2
+        ACTION_MAP[CURRENT_ACTION] = INNER_PAIR;
+        MAP2[current_picture] = ACTION_MAP;
+
+        // INSERTING MAP 2
+        std::string MAP2_KEY = std::to_string(current_user);
+        std::string MAP2_VALUE = inner2_map_to_string(MAP2);
+
+        std::string old_map2_value;
+        s = db_with_cfh->db->Get(ReadOptions(), handles[2], Slice(MAP2_KEY), &ol     d_map2_value);
+        reads_done++;
+        if (!s.IsNotFound()) { // map 2 key already exists
+                MAP2_VALUE = update_nested_map(old_map2_value, current_picture,      CURRENT_ACTION, new_time);
+                found++;
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kRead);
+        }
+        s = db_with_cfh->db->Put(WriteOptions(), handles[2], Slice(MAP2_KEY), Sl     ice(MAP2_VALUE));
+        if (s.ok()) {
+                writes_done++;
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+        }
+        // WRITING MAP 2
+        fputs(MAP2_KEY.c_str(), fp2);
+        fputs("->", fp2);
+        fputs(MAP2_VALUE.c_str(), fp2);
+        fputs("\n", fp2);
+
+        // INSERTING MAP 3
+        std::map<long, std::map<long, std::pair<std::vector<std::string>, long>>     > MAP3;
+        std::string MAP3_KEY = std::to_string(current_user);
+        for (auto const& annotation: annotation_list) {
+            MAP3[annotation] = ACTION_MAP;
+        }
+        std::string MAP3_VALUE = inner2_map_to_string(MAP3);
+        std::string old_map3_value;
+        s = db_with_cfh->db->Get(ReadOptions(), handles[3], Slice(MAP3_KEY), &ol     d_map3_value);
+        reads_done++;
+        if (!s.IsNotFound()) { // map 3 key already exists
+            for (auto const& annotation : annotation_list) {
+                    old_map3_value = update_nested_map(old_map3_value, annot     ation, CURRENT_ACTION, new_time);
+            }
+            MAP3_VALUE = old_map3_value;
+            found++;
+            thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+        }
+        
+        s = db_with_cfh->db->Put(WriteOptions(), handles[3], Slice(MAP3_KEY), Sl     ice(MAP3_VALUE));
+        if (s.ok()) {
+                writes_done++;
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+        }
+        // WRITING MAP 3
+        fputs(MAP3_KEY.c_str(), fp3);
+        fputs("->", fp3);
+        fputs(MAP3_VALUE.c_str(), fp3);
+        fputs("\n", fp3);
+
+        // INSERTING MAP 4
+        std::string MAP4_VALUE = long_long_map_to_string(MAP4);
+        for (auto const& annotation: annotation_list) {
+            std::string MAP4_KEY = user_annotation_to_string(current_user, a     nnotation);
+            std::string old_value;
+            s = db_with_cfh->db->Get(ReadOptions(), handles[4], Slice(MAP4_K     EY), &old_value);
+            reads_done++;
+            if (!s.IsNotFound()) { // already exists in db
+                    MAP4_VALUE = update_single_map(old_value, CURRENT_ACTION     , CURRENT_ACTION); // since action weight is equal to current action id
+                    found++;
+                    thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, k     Write);
+            }
+            s = db_with_cfh->db->Put(WriteOptions(), handles[4], Slice(MAP4_     KEY), Slice(MAP4_VALUE));
+            if (s.ok()) {
+                writes_done++;
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, k     Write);
+            }
+            // WRITING MAP 4
+            fputs(MAP4_KEY.c_str(), fp4);
+            fputs("->", fp4);
+            fputs(MAP4_VALUE.c_str(), fp4);
+            fputs("\n", fp4);
+        }
+
+        if (strcmp(action_type, "SHARE")==0) {
+        // create recursive effect
+        int64_t num_followers = 0;
+
+            if (current_user < FLAGS_users * FLAGS_popular_users) {
+                    // if user is 'popular'
+                    num_followers = thread->rand.Next() % FLAGS_users;      
+            } else {
+                    // if user is not 'popular'
+                    num_followers = thread->rand.Next() % (int64_t)(FLAGS_us     ers*FLAGS_popular_users);
+            }
+            int curr_follower = 0;
+            while (curr_follower < num_followers) {
+
+                /* 1. choose random user */
+                int nested_current_user = thread->rand.Next() % FLAGS_us     ers;
+                users_done++;
+                //DB* db = SelectDB(thread);
+
+                /* 2. choose action for user
+                      a) View picture   (60%)
+                      b) Like picture   (20%)
+                      c) Share picture  (15%)
+                      d) Add picture    (5%) */
+                long nested_action = thread->rand.Next() % 100;
+                char nested_action_type[100];
+                char nested_status[50];
+                char nested_sequence[1000];
+
+                /* 3. choose picture to perform action on */
+                long nested_current_picture = thread->rand.Next() % FLAG     S_pictures;
+                
+                /* 4. create annotations for picture if DNE */
+                int nested_count=0;
+                char nested_annotations[200] = "";
+                std::vector<long> nested_annotation_list;
+                if (picture_store.find(nested_current_picture) != pictur     e_store.end()) {
+                    nested_annotation_list = picture_store.at(nested     _current_picture);
+                    for (int i=0; i<FLAGS_pic_annotations; i++) {
+                        char buffer[50];
+                        if (i == FLAGS_pic_annotations-1)
+                            snprintf(buffer, sizeof(buffer),      "%ld",nested_annotation_list[i]);
+                        else
+                            snprintf(buffer, sizeof(buffer),      "%ld, ", nested_annotation_list[i]);
+                        strcat(nested_annotations, buffer);
+                        strcpy(nested_status, "EXISTING");
+                    }
+                } else {
+                    // generate annotations using Zipfian
+                    while (nested_count < FLAGS_pic_annotations) {
+                        long k = nextValue() % FLAGS_annotations     ;
+                        nested_annotation_list.push_back(k);
+                        char buffer[50];
+                        if (nested_count == FLAGS_pic_annotation     s-1)
+                            snprintf(buffer, sizeof(buffer),      "%ld", k);
+                        else
+                            snprintf(buffer, sizeof(buffer),      "%ld, ", k);
+                        strcat(nested_annotations, buffer);
+                        nested_count++;
+                    }
+                    std::pair<int, std::vector<long>> nested_picture     _pair(nested_current_picture, nested_annotation_list);
+                    picture_store.insert(nested_picture_pair);
+                    strcpy(nested_status, "NEW");
+
+                    // CREATING MAP 1
+                    // map 1 will never need to be updated
+                    std::string NESTED_MAP1_KEY = std::to_string(nes     ted_current_picture);
+                    std::string NESTED_MAP1_VALUE = long_vector_to_s     tring(nested_annotation_list);
+                    s = db_with_cfh->db->Put(WriteOptions(), handles     [1], Slice(NESTED_MAP1_KEY), Slice(NESTED_MAP1_VALUE));
+                    if (s.ok()) {
+                        writes_done++;
+                        thread->stats.FinishedOps(nullptr, db_wi     th_cfh->db, 1, kWrite);
+                    }
+                    // WRITING MAP 1
+                    fputs("NESTED:", fp1);
+                    fputs(NESTED_MAP1_KEY.c_str(), fp1);
+                    fputs("->", fp1);
+                    fputs(NESTED_MAP1_VALUE.c_str(), fp1);
+                    fputs("\n", fp1);
+                }
+                std::vector<std::string> NESTED_TIMESTAMPS;
+                char nested_new_time[100];
+                time_t nested_new_now = time(NULL);
+                struct tm *t2 = localtime(&nested_new_now);
+                strftime(nested_new_time, sizeof(nested_new_time), "%F_%     H:%M:%S", t2);
+                NESTED_TIMESTAMPS.push_back(nested_new_time);
+                std::pair<std::vector<std::string>, long> NESTED_INNER_P     AIR(NESTED_TIMESTAMPS, 1);
+                
+                std::map<long, std::pair<std::vector<std::string>, long>     > NESTED_ACTION_MAP;
+                std::map<long, std::map<long, std::pair<std::vector<std:     :string>, long>>> NESTED_MAP2;
+                
+                // INITIALIZING MAP 4
+                std::map<long, long> NESTED_MAP4;
+                long NESTED_CURRENT_ACTION = -1;
+
+                if (nested_action < 60) {
+                    // view
+                    views++;
+                    NESTED_CURRENT_ACTION = 1;
+                    NESTED_MAP4[1] += 1;
+                    strcpy(nested_action_type, "VIEW");
+                } else if (nested_action >= 60 && nested_action < 80) {
+                    // like
+                    likes++;
+                    NESTED_CURRENT_ACTION = 2;
+                    NESTED_MAP4[2] += 2;
+                    strcpy(nested_action_type, "LIKE");
+                } else if (nested_action >= 80 && nested_action < 95) {
+                    // share
+                    shares++;
+                    NESTED_CURRENT_ACTION = 3;
+                    NESTED_MAP4[3] += 3;
+                    strcpy(nested_action_type, "SHARE");
+                } else {
+                    // add
+                    adds++;
+                    NESTED_CURRENT_ACTION = 4;
+                    NESTED_MAP4[4] += 4;
+                    strcpy(nested_action_type, "ADD");
+                }
+                snprintf(nested_sequence, sizeof(nested_sequence), "NEST     ED: User [%d] performed [%s] on [%s] picture [%ld] with annotations [%s].\n", nested_cur     rent_user, nested_action_type, nested_status, nested_current_picture, nested_annotations     );
+                fputs(nested_sequence, fp);
+
+
+                // CREATING MAP 2
+                NESTED_ACTION_MAP[NESTED_CURRENT_ACTION] = NESTED_INNER_     PAIR;
+                NESTED_MAP2[nested_current_picture] = NESTED_ACTION_MAP;
+                // INSERTING MAP 2
+                std::string NESTED_MAP2_KEY = std::to_string(nested_curr     ent_user);
+                std::string NESTED_MAP2_VALUE = inner2_map_to_string(NES     TED_MAP2);
+
+                std::string nested_old_map2_value;
+                s = db_with_cfh->db->Get(ReadOptions(), handles[2], Slic     e(MAP2_KEY), &nested_old_map2_value);
+                reads_done++;
+                if (!s.IsNotFound()) { // map 2 key already exists
+                    NESTED_MAP2_VALUE = update_nested_map(nested_old     _map2_value, nested_current_picture, NESTED_CURRENT_ACTION, nested_new_time);
+                    found++;
+                    thread->stats.FinishedOps(nullptr, db_with_cfh->     db, 1, kWrite);
+                }
+                s = db_with_cfh->db->Put(WriteOptions(), handles[2], Sli     ce(NESTED_MAP2_KEY), Slice(NESTED_MAP2_VALUE));
+
+                // WRITING MAP 2
+                fputs("NESTED:", fp2);
+                fputs(NESTED_MAP2_KEY.c_str(), fp2);
+                fputs("->", fp2);
+                fputs(NESTED_MAP2_VALUE.c_str(), fp2);
+                fputs("\n", fp2);
+
+
+                // INSERTING MAP 3
+                std::map<long, std::map<long, std::pair<std::vector<std:     :string>, long>>> NESTED_MAP3;
+                std::string NESTED_MAP3_KEY = std::to_string(nested_curr     ent_user);
+                for (auto const& annotation: nested_annotation_list) {
+                    NESTED_MAP3[annotation] = NESTED_ACTION_MAP;
+                }
+                std::string NESTED_MAP3_VALUE = inner2_map_to_string(NES     TED_MAP3);
+                std::string nested_old_map3_value;
+                s = db_with_cfh->db->Get(ReadOptions(), handles[3], Slic     e(NESTED_MAP3_KEY), &nested_old_map3_value);
+                reads_done++;
+                if (!s.IsNotFound()) { // map 3 key already exists
+                    for (auto const& annotation : nested_annotation_     list) {
+                        nested_old_map3_value = update_nested_ma     p(nested_old_map3_value, annotation, NESTED_CURRENT_ACTION, nested_new_time);
+                    }
+                    NESTED_MAP3_VALUE = nested_old_map3_value;
+                    found++;
+                    thread->stats.FinishedOps(nullptr, db_with_cfh->     db, 1, kWrite);
+                }
+                
+                s = db_with_cfh->db->Put(WriteOptions(), handles[3], Sli     ce(NESTED_MAP3_KEY), Slice(NESTED_MAP3_VALUE));
+                if (s.ok()) {
+                    writes_done++;
+                    thread->stats.FinishedOps(nullptr, db_with_cfh->     db, 1, kWrite);
+                }
+                // WRITING MAP 3
+                fputs("NESTED:", fp3);
+                fputs(NESTED_MAP3_KEY.c_str(), fp3);
+                fputs("->", fp3);
+                fputs(NESTED_MAP3_VALUE.c_str(), fp3);
+                fputs("\n", fp3);
+
+
+                // INSERTING MAP 4
+                std::string NESTED_MAP4_VALUE = long_long_map_to_string(     NESTED_MAP4);
+                for (auto const& annotation: nested_annotation_list) {
+                    std::string NESTED_MAP4_KEY = user_annotation_to     _string(nested_current_user, annotation);
+                    std::string old_value;
+                    s = db_with_cfh->db->Get(ReadOptions(), handles[     4], Slice(NESTED_MAP4_KEY), &old_value);
+                    reads_done++;
+                    if (!s.IsNotFound()) { // already exists in db
+                        NESTED_MAP4_VALUE = update_single_map(ol     d_value, NESTED_CURRENT_ACTION, NESTED_CURRENT_ACTION); // since action weight is equal      to current action id
+                        found++;
+                        thread->stats.FinishedOps(nullptr, db_wi     th_cfh->db, 1, kWrite);
+                    }
+                    s = db_with_cfh->db->Put(WriteOptions(), handles     [4], Slice(NESTED_MAP4_KEY), Slice(NESTED_MAP4_VALUE));
+                    if (s.ok()) {
+                            writes_done++;
+                            thread->stats.FinishedOps(nullptr, db_wi     th_cfh->db, 1, kWrite);
+                    }
+                    // WRITING MAP 4
+                    fputs("NESTED:", fp4);
+                    fputs(NESTED_MAP4_KEY.c_str(), fp4);
+                    fputs("->", fp4);
+                    fputs(NESTED_MAP4_VALUE.c_str(), fp4);
+                    fputs("\n", fp4);
+                }
+                /** END **/
+                curr_follower++;
+            }
+        }
+    } // while(!Duration.done(1))
+
+    end = clock();
+    fclose(fp);
+    fclose(fp1);
+    fclose(fp2);
+    fclose(fp3);
+    fclose(fp4);
+    cpu_time_used = ((double)(end-start))/CLOCKS_PER_SEC;
+
+    printf("\n--------------BENCHMARK RESULTS------------------\n");
+    printf("Total CPU time elapsed  : %10f seconds\n", cpu_time_used);
+    printf("-------------------------------------------------\n");
+    printf("Total users processed   : %10" PRId64 "\n", users_done);
+    printf("Total unique pictures   : %10ld [%f%%]\n", picture_store.size(), (double     )picture_store.size()/users_done*100);
+    printf("-------------------------------------------------\n");
+    printf("Views performed         : %10" PRId64 " [%f%%]\n", views, (double)views/     users_done*100);
+    printf("Likes performed         : %10" PRId64 " [%f%%]\n", likes, (double)likes/     users_done*100);
+    printf("Shares performed        : %10" PRId64 " [%f%%]\n", shares, (double)share     s/users_done*100);
+    printf("Adds performed          : %10" PRId64 " [%f%%]\n", adds, (double)adds/us     ers_done*100);
+
+    printf("\n%s.txt has successfully been saved!\n", time_text);
+
+    std::string stats;
+    db_with_cfh->db->GetProperty("rocksdb.stats", &stats);
+    std::cout << "*************BEGINNING OF STATS*****************" << std::endl;
+    std::cout << stats << std::endl;
+    std::cout << "*************END OF STATS****************" << std::endl;
+
+    char msg[100];
+    snprintf(msg, sizeof(msg), "( reads:%" PRIu64 " writes:%" PRIu64 " found:%" PRIu     64 ")", reads_done, writes_done, found);
+    thread->stats.AddMessage(msg);
   }
 
   void ReadRandomFast(ThreadState* thread) {
