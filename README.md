@@ -6,9 +6,9 @@ This research project is generously supported by the [NSERC USRA](https://www.ns
 
 In our modern era of technology, the goal of most (if not all) online platforms is to provide a customized experience to their users, by suggesting relevant items to adjust to their preferences. These recommendation systems ingest enormous amounts of information at a very high rate, and require a datastore that can simultaneously provide:
 
-1. **high write throughput** to ingest the incoming user events
-2. **high read throughput** and **low read latency** to efficiently merge new information with the old data
-3. **persistent storage**, since the amount of incoming data is large and is growing continuously
+1. **High write throughput** to ingest the incoming user events.
+2. **High read throughput** and **low read latency** to efficiently merge new information with the old data.
+3. **Persistent storage**, since the amount of incoming data is large and is growing continuously.
 
 It is achieving all three objectives simulatenously that is a challenge.
 
