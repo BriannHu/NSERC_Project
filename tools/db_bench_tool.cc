@@ -5541,6 +5541,7 @@ class Benchmark {
     strftime(time_text, sizeof(time_text), "%F_%H:%M:%S", t);
     snprintf(filename, sizeof(filename), "LOG_FILES/GENERAL_FILES/%s.txt", time_text     );
 
+    /*
     char map1_filename[200];
     char map2_filename[200];
     char map3_filename[200];
@@ -5556,7 +5557,7 @@ class Benchmark {
     FILE *fp2 = fopen(map2_filename, "w");
     FILE *fp3 = fopen(map3_filename, "w");
     FILE *fp4 = fopen(map4_filename, "w");
-
+    */
     while (!duration.Done(1)) {
 
         /* 1. choose random user */
@@ -5571,7 +5572,7 @@ class Benchmark {
         long action = thread->rand.Next() % 100;
         char action_type[100];
         char status[50];
-        char sequence[1000];
+        //char sequence[1000];
 
         /* 3. choose picture to perform action on */
         long current_picture = thread->rand.Next() % FLAGS_pictures;
@@ -5620,13 +5621,14 @@ class Benchmark {
                 writes_done++;
                 thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
             }
-
+	    /*
             // WRITING MAP 1
             fputs(MAP1_KEY.c_str(), fp1);
             fputs("->", fp1);
             fputs(MAP1_VALUE.c_str(), fp1);
             fputs("\n", fp1);
-        }
+            */
+	}
 
         long CURRENT_ACTION = -1;
 
@@ -5669,11 +5671,11 @@ class Benchmark {
                 MAP4[4] += 4;
                 strcpy(action_type, "ADD");
         }
-
+	/*
          // WRITING TO GENERAL FILE
         snprintf(sequence, sizeof(sequence), "User [%d] performed [%s] on [%s] picture [%ld] with annotations [%s].\n", current_user, action_type, status, current_picture, annotations);
         fputs(sequence, fp);
-        
+        */
         // CREATING MAP 2
         ACTION_MAP[CURRENT_ACTION] = INNER_PAIR;
         MAP2[current_picture] = ACTION_MAP;
@@ -5695,11 +5697,13 @@ class Benchmark {
                 writes_done++;
                 thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
         }
+	/*
         // WRITING MAP 2
         fputs(MAP2_KEY.c_str(), fp2);
         fputs("->", fp2);
         fputs(MAP2_VALUE.c_str(), fp2);
         fputs("\n", fp2);
+	*/
 
         // INSERTING MAP 3
         std::map<long, std::map<long, std::pair<std::vector<std::string>, long>>> MAP3;
@@ -5725,11 +5729,13 @@ class Benchmark {
                 writes_done++;
                 thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
         }
+	/*
         // WRITING MAP 3
         fputs(MAP3_KEY.c_str(), fp3);
         fputs("->", fp3);
         fputs(MAP3_VALUE.c_str(), fp3);
         fputs("\n", fp3);
+	*/
 
         // INSERTING MAP 4
         std::string MAP4_VALUE = long_long_map_to_string(MAP4);
@@ -5748,11 +5754,13 @@ class Benchmark {
                 writes_done++;
                 thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
             }
+	    /*
             // WRITING MAP 4
             fputs(MAP4_KEY.c_str(), fp4);
             fputs("->", fp4);
             fputs(MAP4_VALUE.c_str(), fp4);
             fputs("\n", fp4);
+  	    */
         }
 
         if (strcmp(action_type, "SHARE")==0) {
@@ -5782,7 +5790,7 @@ class Benchmark {
                 long nested_action = thread->rand.Next() % 100;
                 char nested_action_type[100];
                 char nested_status[50];
-                char nested_sequence[1000];
+                //char nested_sequence[1000];
 
                 /* 3. choose picture to perform action on */
                 long nested_current_picture = thread->rand.Next() % FLAGS_pictures;
@@ -5828,12 +5836,14 @@ class Benchmark {
                         writes_done++;
                         thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
                     }
+		    /*
                     // WRITING MAP 1
                     fputs("NESTED:", fp1);
                     fputs(NESTED_MAP1_KEY.c_str(), fp1);
                     fputs("->", fp1);
                     fputs(NESTED_MAP1_VALUE.c_str(), fp1);
                     fputs("\n", fp1);
+		    */
                 }
                 std::vector<std::string> NESTED_TIMESTAMPS;
                 char nested_new_time[100];
@@ -5875,9 +5885,10 @@ class Benchmark {
                     NESTED_MAP4[4] += 4;
                     strcpy(nested_action_type, "ADD");
                 }
+		/*
                 snprintf(nested_sequence, sizeof(nested_sequence), "NESTED: User [%d] performed [%s] on [%s] picture [%ld] with annotations [%s].\n", nested_current_user, nested_action_type, nested_status, nested_current_picture, nested_annotations);
                 fputs(nested_sequence, fp);
-
+		*/
 
                 // CREATING MAP 2
                 NESTED_ACTION_MAP[NESTED_CURRENT_ACTION] = NESTED_INNER_PAIR;
@@ -5895,14 +5906,14 @@ class Benchmark {
                     thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
                 }
                 s = db_with_cfh->db->Put(WriteOptions(), handles[2], Slice(NESTED_MAP2_KEY), Slice(NESTED_MAP2_VALUE));
-
+		/*
                 // WRITING MAP 2
                 fputs("NESTED:", fp2);
                 fputs(NESTED_MAP2_KEY.c_str(), fp2);
                 fputs("->", fp2);
                 fputs(NESTED_MAP2_VALUE.c_str(), fp2);
                 fputs("\n", fp2);
-
+		*/
 
                 // INSERTING MAP 3
                 std::map<long, std::map<long, std::pair<std::vector<std::string>, long>>> NESTED_MAP3;
@@ -5928,13 +5939,14 @@ class Benchmark {
                     writes_done++;
                     thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
                 }
+		/*
                 // WRITING MAP 3
                 fputs("NESTED:", fp3);
                 fputs(NESTED_MAP3_KEY.c_str(), fp3);
                 fputs("->", fp3);
                 fputs(NESTED_MAP3_VALUE.c_str(), fp3);
                 fputs("\n", fp3);
-
+		*/
 
                 // INSERTING MAP 4
                 std::string NESTED_MAP4_VALUE = long_long_map_to_string(NESTED_MAP4);
@@ -5953,12 +5965,14 @@ class Benchmark {
                             writes_done++;
                             thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
                     }
-                    // WRITING MAP 4
+                    /*
+		    // WRITING MAP 4
                     fputs("NESTED:", fp4);
                     fputs(NESTED_MAP4_KEY.c_str(), fp4);
                     fputs("->", fp4);
                     fputs(NESTED_MAP4_VALUE.c_str(), fp4);
                     fputs("\n", fp4);
+		    */
                 }
                 /** END **/
                 curr_follower++;
@@ -5967,11 +5981,13 @@ class Benchmark {
     } // while(!Duration.done(1))
 
     end = clock();
+    /*
     fclose(fp);
     fclose(fp1);
     fclose(fp2);
     fclose(fp3);
     fclose(fp4);
+    */
     cpu_time_used = ((double)(end-start))/CLOCKS_PER_SEC;
 
     printf("\n--------------BENCHMARK RESULTS------------------\n");
