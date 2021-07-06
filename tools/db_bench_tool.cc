@@ -2165,6 +2165,12 @@ class Stats {
                   (now - last_report_finish_) / 1000000.0,
                   (now - start_) / 1000000.0);
 
+	  for (auto it = hist_.begin(); it != hist_.end(); ++it) {
+		fprintf(stderr, "Microseconds per %s %d : \n%.200s\n", 
+		OperationTypeString[it->first].c_str(), id_,
+		it->second->ToString().c_str());
+	  }
+
           if (id_ == 0 && FLAGS_stats_per_interval) {
             std::string stats;
 
