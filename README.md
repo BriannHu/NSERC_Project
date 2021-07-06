@@ -54,7 +54,7 @@ The following table highlights the files that have been modified/created for thi
 | ---------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------- |
 | [`tools/db_bench_tool.cc`](./tools/db_bench_tool.cc)       | Modified  | Implemented custom benchmark to simulate social media workload.                                 |
 | [`util/json_serializer.cc`](./util/json_serializer.cc)     | Created\* | Created functions to stringify all four custom maps.                                            |
-| [`util/zipf.cc`](./util/zipf.cc) \*\*                      | Created\* | Created functions to generate random number between specified range using Zipfian distribution. |
+| [`util/zipf.cc`](./util/zipf.cc)\*\*                       | Created\* | Created functions to generate random number between specified range using Zipfian distribution. |
 | [`CMakeList.txt`](./CMakeLists.txt) + [`src.mk`](./src.mk) | Modified  | Added created files to enable Makefile to target.                                               |
 
 \* Corresponding header files have also been created for these files. <br>
