@@ -76,14 +76,14 @@ std::string long_long_map_to_string(std::map<long, long> m) {
   std::string output="{";
   std::string result="";
   for (auto const& value: m) {
-          output += std::to_string(value.first) + ":" + std::to_string(value.second    ) + ",";
+          output += std::to_string(value.first) + ":" + std::to_string(value.second) + ",";
   }
   result = output.substr(0, output.size()-1) + "}";
   return result;
 }
  
 // inner-most map: key is actionID
-std::string inner1_map_to_string(std::map<long, std::pair<std::vector<std::string>, long>    > m) {
+std::string inner1_map_to_string(std::map<long, std::pair<std::vector<std::string>, long>> m) {
   std::string output="{";
   std::string result;
   
@@ -91,14 +91,14 @@ std::string inner1_map_to_string(std::map<long, std::pair<std::vector<std::strin
           long id = value.first;
           std::pair<std::vector<std::string>, long> pair = value.second;
   
-          output += std::to_string(id) + ":" + string_long_pair_to_string(pair) + "    ,";
+          output += std::to_string(id) + ":" + string_long_pair_to_string(pair) + ",";
   }
   result = output.substr(0, output.size()-1) + "}";
   return result;
 }
 
  // second-inner most map: key is imageID
-std::string inner2_map_to_string(std::map<long, std::map<long, std::pair<std::vector<std:    :string>, long>>> m) {
+std::string inner2_map_to_string(std::map<long, std::map<long, std::pair<std::vector<std::string>, long>>> m) {
   std::string output="{";
   std::string result;
   
@@ -114,7 +114,7 @@ std::string inner2_map_to_string(std::map<long, std::map<long, std::pair<std::ve
 }
 
   // outer-most most: key is userID
-std::string inner3_map_to_string(std::map<long, std::map<long, std::map<long, std::pair<s    td::vector<std::string>, long>>>> m) {
+std::string inner3_map_to_string(std::map<long, std::map<long, std::map<long, std::pair<std::vector<std::string>, long>>>> m) {
   std::string output = "{";
   std::string result;
   
@@ -139,6 +139,6 @@ std::string string_long_pair_to_string(std::pair<std::vector<std::string>, long>
 
 
 std::string user_annotation_to_string(long user, long annotation) {
-  std::string result="(" + std::to_string(user) + "," + std::to_string(annotation)     + ")";
+  std::string result="(" + std::to_string(user) + "," + std::to_string(annotation) + ")";
   return result;
 }

@@ -13,11 +13,11 @@ std::string UAS_map_to_string(std::map<long, long> m);
 
 std::string long_long_map_to_string(std::map<long, long> m);
 
-std::string inner1_map_to_string(std::map<long, std::pair<std::vector<std::string>, long>    > m);
+std::string inner1_map_to_string(std::map<long, std::pair<std::vector<std::string>, long>> m);
 
-std::string inner2_map_to_string(std::map<long, std::map<long, std::pair<std::vector<std:    :string>, long>>> m);
+std::string inner2_map_to_string(std::map<long, std::map<long, std::pair<std::vector<std::string>, long>>> m);
 
-std::string inner3_map_to_string(std::map<long, std::map<long, std::map<long, std::pair<s    td::vector<std::string>, long>>>> m);
+std::string inner3_map_to_string(std::map<long, std::map<long, std::map<long, std::pair<std::vector<std::string>, long>>>> m);
 
 std::string string_long_pair_to_string(std::pair<std::vector<std::string>, long> p);
 
