@@ -18,15 +18,15 @@ To address the challenge of designing an optimal recommendation system that sati
 
 This project aims to augment the LSM tree that RocksDB uses, to support real-time recommendations on fresh data, and meet the three requirements of an effective modern recommendation system.
 
-### Phase 1 - Implementing and Running Representative Benchmark
+### Phase 1 - Implementing and Running a Representative Benchmark
 
-To simulate a recommendation system for a social media platform, the set of all possible actions is defined with the following:
-| ActionType | Default %\* |
-|------------|----------:|
-| VIEW | 60% |
-| LIKE | 20% |
-| SHARE\*\* | 15% |
-| ADD | 5% |
+To simulate a recommendation system for a social media platform, there are four "maps" (distinguished using different column families in RocksDB), which represent the different key-value pairs that store the data generated during a benchmark:
 
-\* The chance of each action occuring is arbitrary and can be modified in the benchmark. <br>
-\*\* Upon each SHARE action, additional iterations of the action loop are performed. This simulates how after a post is shared, there will be additional actions that are associated with it.
+| Map                            | Key                    | Value\*                                                                    |
+| ------------------------------ | ---------------------- | -------------------------------------------------------------------------- |
+| 1) Picture Annotations         | ImageID                | Set[Annotation]                                                            |
+| 2) Picture User Time Series    | UserID                 | Map{ImageID &#8594; Map{ActionID &#8594; (List[TimeStamp], Counter)}}      |
+| 3) User Annotation Time Series | UserID                 | Map{AnnotationID &#8594; Map{ActionID &#8594; (List[TimeStamp], Counter)}} |
+| 4) User Annotation Scores      | (UserID, AnnotationID) | Map{ActionID &#8594; Score}                                                |
+
+\*In Phase 1, these maps are represented using RocksDB's [Slice](https://github.com/facebook/rocksdb/wiki/Basic-Operations#slice) structure.
