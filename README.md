@@ -58,4 +58,4 @@ The following table highlights the files that have been modified/created for thi
 | [`CMakeList.txt`](./CMakeLists.txt) + [`src.mk`](./src.mk) | Modified  | Added created files to enable Makefile to target.                                               |
 
 \* Corresponding header files have also been created for these files. <br>
-\*\* Original author: Oana Balmau ([link to code](https://github.com/theoanab/SILK-USENIXATC2019/blob/master/util/zipf.cc))
+\*\* Original author: Oana Balmau ([link to code](https://github.com/theoanab/SILK-USENIXATC2019/blob/master/util/zipf.cc)).
