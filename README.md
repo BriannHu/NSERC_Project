@@ -37,5 +37,5 @@ The data of interest collected from the benchmark is:
 - Average read/write latency of all maps
 - 50th and 99th percentile read/write latency of all maps
 
-An example figure generated using the benchmark is the following: <br>
+An example figure generated using the benchmark is the following: <br><br>
 ![Map2 99th Percentile Figure](https://github.com/BriannHu/NSERC_Project/blob/master/figures/Map2_Read_2hr_99th_Percentile.png)
