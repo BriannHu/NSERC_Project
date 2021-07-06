@@ -10,7 +10,7 @@ In our modern era of technology, the goal of most (if not all) online platforms 
 2. **High read throughput** and **low read latency** to efficiently merge new information with the old data.
 3. **Persistent storage**, since the amount of incoming data is large and is growing continuously.
 
-It is achieving all three objectives simulatenously that is a challenge.
+It is achieving all three objectives simultaneously that is a challenge.
 
 ## Project Description
 
