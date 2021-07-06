@@ -30,3 +30,12 @@ To simulate a recommendation system for a social media platform, there are four 
 | 4) User Annotation Scores      | (UserID, AnnotationID) | Map{ActionID &#8594; Score}                                                |
 
 \*In Phase 1, these maps are represented using RocksDB's [Slice](https://github.com/facebook/rocksdb/wiki/Basic-Operations#slice) structure.
+
+The data of interest collected from the benchmark is:
+
+- Average throughput of using all maps
+- Average read/write latency of all maps
+- 50th and 99th percentile read/write latency of all maps
+
+An example figure generated using the benchmark is the following:
+![Map2 99th Percentile Figure](figures\Map2_Read_2hr_99th_Percentile.png)
