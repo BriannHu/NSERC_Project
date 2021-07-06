@@ -29,7 +29,7 @@ To simulate a recommendation system for a social media platform, there are four 
 | 3) User Annotation Time Series | UserID                 | Map{AnnotationID &#8594; Map{ActionID &#8594; (List[TimeStamp], Counter)}} |
 | 4) User Annotation Scores      | (UserID, AnnotationID) | Map{ActionID &#8594; Score}                                                |
 
-\*In Phase 1, these maps are represented using RocksDB's [Slice](https://github.com/facebook/rocksdb/wiki/Basic-Operations#slice) structure.
+\*In Phase 1, these maps are represented using RocksDB's [`Slice`](https://github.com/facebook/rocksdb/wiki/Basic-Operations#slice) structure.
 
 The data of interest collected from the benchmark is:
 
@@ -37,5 +37,11 @@ The data of interest collected from the benchmark is:
 - Average read/write latency of all maps
 - 50th and 99th percentile read/write latency of all maps
 
-An example figure generated using the benchmark is the following: <br><br>
+The following is an example figure generated using the benchmark: <br><br>
 ![Map2 99th Percentile Figure](https://github.com/BriannHu/NSERC_Project/blob/master/figures/Map2_Read_2hr_99th_Percentile.png)
+
+### Phase 2 - Modifying the LSM Tree used by RocksDB
+
+To augment the underlying LSM tree, RocksDB needs to be modified to support data structures other than just `Slice`. The benchmark will then be re-run using these new data structures to compare the read/write performance against that of using a `Slice`.
+
+Currently in progress!
