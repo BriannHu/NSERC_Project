@@ -1955,6 +1955,13 @@ enum OperationType : unsigned char {
   kRead = 0,
   kWrite,
   kDelete,
+  kMap1Write, // Map1 will never be read
+  kMap2Read,
+  kMap2Write,
+  kMap3Read,
+  kMap3Write,
+  kMap4Read,
+  kMap4Write,
   kSeek,
   kMerge,
   kUpdate,
@@ -1970,6 +1977,13 @@ static std::unordered_map<OperationType, std::string, std::hash<unsigned char>>
   {kRead, "read"},
   {kWrite, "write"},
   {kDelete, "delete"},
+  {kMap1Write, "Map1Write"},
+  {kMap2Read, "Map2Read"},
+  {kMap2Write, "Map2Write"},
+  {kMap3Read, "Map3Read"},
+  {kMap3Write, "Map3Write"},
+  {kMap4Read, "Map4Read"},
+  {kMap4Write, "Map4Write"},
   {kSeek, "seek"},
   {kMerge, "merge"},
   {kUpdate, "update"},
@@ -5625,7 +5639,7 @@ class Benchmark {
             s = db_with_cfh->db->Put(WriteOptions(), handles[1], Slice(MAP1_KEY), Slice(MAP1_VALUE));
             if (s.ok()) {
                 writes_done++;
-                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap1Write);
             }
 	    /*
             // WRITING MAP 1
@@ -5696,12 +5710,12 @@ class Benchmark {
         if (!s.IsNotFound()) { // map 2 key already exists
                 MAP2_VALUE = update_nested_map(old_map2_value, current_picture, CURRENT_ACTION, new_time);
                 found++;
-                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kRead);
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap2Read);
         }
         s = db_with_cfh->db->Put(WriteOptions(), handles[2], Slice(MAP2_KEY), Slice(MAP2_VALUE));
         if (s.ok()) {
                 writes_done++;
-                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap2Write);
         }
 	/*
         // WRITING MAP 2
@@ -5727,13 +5741,13 @@ class Benchmark {
             }
             MAP3_VALUE = old_map3_value;
             found++;
-            thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+            thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap3Read);
         }
         
         s = db_with_cfh->db->Put(WriteOptions(), handles[3], Slice(MAP3_KEY), Slice(MAP3_VALUE));
         if (s.ok()) {
                 writes_done++;
-                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap3Write);
         }
 	/*
         // WRITING MAP 3
@@ -5753,12 +5767,12 @@ class Benchmark {
             if (!s.IsNotFound()) { // already exists in db
                     MAP4_VALUE = update_single_map(old_value, CURRENT_ACTION, CURRENT_ACTION); // since action weight is equal to current action id
                     found++;
-                    thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                    thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap4Read);
             }
             s = db_with_cfh->db->Put(WriteOptions(), handles[4], Slice(MAP4_KEY), Slice(MAP4_VALUE));
             if (s.ok()) {
                 writes_done++;
-                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap4Write);
             }
 	    /*
             // WRITING MAP 4
@@ -5840,7 +5854,7 @@ class Benchmark {
                     s = db_with_cfh->db->Put(WriteOptions(), handles[1], Slice(NESTED_MAP1_KEY), Slice(NESTED_MAP1_VALUE));
                     if (s.ok()) {
                         writes_done++;
-                        thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                        thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap1Write);
                     }
 		    /*
                     // WRITING MAP 1
@@ -5909,9 +5923,13 @@ class Benchmark {
                 if (!s.IsNotFound()) { // map 2 key already exists
                     NESTED_MAP2_VALUE = update_nested_map(nested_old_map2_value, nested_current_picture, NESTED_CURRENT_ACTION, nested_new_time);
                     found++;
-                    thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                    thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap2Read);
                 }
                 s = db_with_cfh->db->Put(WriteOptions(), handles[2], Slice(NESTED_MAP2_KEY), Slice(NESTED_MAP2_VALUE));
+		if (s.ok()) {
+			writes_done++;
+			thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap2Write);
+		}
 		/*
                 // WRITING MAP 2
                 fputs("NESTED:", fp2);
@@ -5937,13 +5955,13 @@ class Benchmark {
                     }
                     NESTED_MAP3_VALUE = nested_old_map3_value;
                     found++;
-                    thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                    thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap3Read);
                 }
                 
                 s = db_with_cfh->db->Put(WriteOptions(), handles[3], Slice(NESTED_MAP3_KEY), Slice(NESTED_MAP3_VALUE));
                 if (s.ok()) {
                     writes_done++;
-                    thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                    thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap3Write);
                 }
 		/*
                 // WRITING MAP 3
@@ -5964,12 +5982,12 @@ class Benchmark {
                     if (!s.IsNotFound()) { // already exists in db
                         NESTED_MAP4_VALUE = update_single_map(old_value, NESTED_CURRENT_ACTION, NESTED_CURRENT_ACTION); // since action weight is equal      to current action id
                         found++;
-                        thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                        thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap4Read);
                     }
                     s = db_with_cfh->db->Put(WriteOptions(), handles[4], Slice(NESTED_MAP4_KEY), Slice(NESTED_MAP4_VALUE));
                     if (s.ok()) {
                             writes_done++;
-                            thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kWrite);
+                            thread->stats.FinishedOps(nullptr, db_with_cfh->db, 1, kMap4Write);
                     }
                     /*
 		    // WRITING MAP 4
