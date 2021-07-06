@@ -17,3 +17,16 @@ It is achieving all three objectives simultaneously that is a challenge.
 To address the challenge of designing an optimal recommendation system that satisfies the three requirements (high write throughput, high read throughput, persistent storage), this project will build upon Facebook's existing [RocksDB](https://github.com/facebook/rocksdb), which uses [log-structured merge trees](https://en.wikipedia.org/wiki/Log-structured_merge-tree). LSM trees are a popular data structure for write-optimized, persistent NoSQL datastores, but are not optimized for reads and provide little support for complex data structures like those in recommendation systems.
 
 This project aims to augment the LSM tree that RocksDB uses, to support real-time recommendations on fresh data, and meet the three requirements of an effective modern recommendation system.
+
+### Phase 1 - Implementing and Running Representative Benchmark
+
+To simulate a recommendation system for a social media platform, the set of all possible actions is defined with the following:
+| ActionType | Default %\* |
+|------------|----------:|
+| VIEW | 60% |
+| LIKE | 20% |
+| SHARE\*\* | 15% |
+| ADD | 5% |
+
+\* The chance of each action occuring is arbitrary and can be modified in the benchmark. <br>
+\*\* Upon each SHARE action, additional iterations of the action loop are performed. This simulates how after a post is shared, there will be additional actions that are associated with it.
