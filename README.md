@@ -42,6 +42,19 @@ The following is an example figure generated using the benchmark: <br><br>
 
 ### Phase 2 - Modifying the LSM Tree used by RocksDB
 
-To augment the underlying LSM tree, RocksDB needs to be modified to support data structures other than just `Slice`. The benchmark will then be re-run using these new data structures to compare the read/write performance against that of using a `Slice`.
+To augment the underlying LSM tree, RocksDB needs to be modified to support data structures other than just the `Slice`. The benchmark will then be re-run using these new data structures to compare the read/write performance against that of using a `Slice`.
 
 Currently in progress!
+
+## Relevant Files
+
+The following table highlights the files that have been modified/created for this project and their purpose.
+
+| File                                                       | Status    | Description                                                                                     |
+| ---------------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------- |
+| [`tools/db_bench_tool.cc`](./tools/db_bench_tool.cc)       | Modified  | Implemented custom benchmark to simulate social media workload.                                 |
+| [`util/json_serializer.cc`](./util/json_serializer.cc)     | Created\* | Created functions to stringify all four custom maps.                                            |
+| [`util/zipf.cc`](./util/zipf.cc)                           | Created\* | Created functions to generate random number between specified range using Zipfian distribution. |
+| [`CMakeList.txt`](./CMakeLists.txt) + [`src.mk`](./src.mk) | Modified  | Added created files to enable Makefile to target.                                               |
+
+\* Corresponding header files have also been created for these files.
