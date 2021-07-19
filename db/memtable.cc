@@ -988,6 +988,71 @@ void MemTable::GetFromTable(const LookupKey& key,
   *seq = saver.seq;
 }
 
+
+bool MemTable::GetInt(const LookupKey& key, int* value,
+                   std::string* timestamp, Status* s,
+                   MergeContext* merge_context,
+                   SequenceNumber* max_covering_tombstone_seq,
+                   SequenceNumber* seq, const ReadOptions& read_opts,
+                   ReadCallback* callback, bool* is_blob_index, bool do_merge) {
+  // The sequence number is updated synchronously in version_set.h
+  if (IsEmpty()) {
+    // Avoiding recording stats for speed.
+    return false;
+  }
+  PERF_TIMER_GUARD(get_from_memtable_time);
+
+  std::unique_ptr<FragmentedRangeTombstoneIterator> range_del_iter(
+      NewRangeTombstoneIterator(read_opts,
+                                GetInternalKeySeqno(key.internal_key())));
+  if (range_del_iter != nullptr) {
+    *max_covering_tombstone_seq =
+        std::max(*max_covering_tombstone_seq,
+                 range_del_iter->MaxCoveringTombstoneSeqnum(key.user_key()));
+  }
+
+  bool found_final_value = false;
+  bool merge_in_progress = s->IsMergeInProgress();
+  bool may_contain = true;
+  size_t ts_sz = GetInternalKeyComparator().user_comparator()->timestamp_size();
+  Slice user_key_without_ts = StripTimestampFromUserKey(key.user_key(), ts_sz);
+  if (bloom_filter_) {
+    // when both memtable_whole_key_filtering and prefix_extractor_ are set,
+    // only do whole key filtering for Get() to save CPU
+    if (moptions_.memtable_whole_key_filtering) {
+      may_contain = bloom_filter_->MayContain(user_key_without_ts);
+    } else {
+      assert(prefix_extractor_);
+      may_contain = !prefix_extractor_->InDomain(user_key_without_ts) ||
+                    bloom_filter_->MayContain(
+                        prefix_extractor_->Transform(user_key_without_ts));
+    }
+  }
+
+  if (bloom_filter_ && !may_contain) {
+    // iter is null if prefix bloom says the key does not exist
+    PERF_COUNTER_ADD(bloom_memtable_miss_count, 1);
+    *seq = kMaxSequenceNumber;
+  } else {
+    if (bloom_filter_) {
+      PERF_COUNTER_ADD(bloom_memtable_hit_count, 1);
+    }
+    GetIntFromTable(key, *max_covering_tombstone_seq, do_merge, callback,
+                 is_blob_index, value, timestamp, s, merge_context, seq,
+                 &found_final_value, &merge_in_progress);
+  }
+
+  // No change to value, since we have not yet found a Put/Delete
+  if (!found_final_value && merge_in_progress) {
+    *s = Status::MergeInProgress();
+  }
+  PERF_COUNTER_ADD(get_from_memtable_count, 1);
+  return found_final_value;
+}
+
+
+
+
 void MemTable::GetIntFromTable(const LookupKey& key,
                             SequenceNumber max_covering_tombstone_seq,
                             bool do_merge, ReadCallback* callback,
