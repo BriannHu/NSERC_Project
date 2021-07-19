@@ -698,6 +698,41 @@ struct Saver {
 };
 }  // namespace
 
+// Callback from MemTable::GetInt())
+namespace {
+
+struct IntSaver {
+  Status* status;
+  const LookupKey* key;
+  bool* found_final_value;  // Is value set correctly? Used by KeyMayExist
+  bool* merge_in_progress;
+  int* value;
+  SequenceNumber seq;
+  std::string* timestamp;
+  const MergeOperator* merge_operator;
+  // the merge operations encountered;
+  MergeContext* merge_context;
+  SequenceNumber max_covering_tombstone_seq;
+  MemTable* mem;
+  Logger* logger;
+  Statistics* statistics;
+  bool inplace_update_support;
+  bool do_merge;
+  SystemClock* clock;
+
+  ReadCallback* callback_;
+  bool* is_blob_index;
+  bool allow_data_in_errors;
+  bool CheckCallback(SequenceNumber _seq) {
+    if (callback_) {
+      return callback_->IsVisible(_seq);
+    }
+    return true;
+  }
+};
+}  // namespace
+
+
 static bool SaveValue(void* arg, const char* entry) {
   Saver* s = reinterpret_cast<Saver*>(arg);
   assert(s != nullptr);
@@ -930,6 +965,37 @@ void MemTable::GetFromTable(const LookupKey& key,
                             MergeContext* merge_context, SequenceNumber* seq,
                             bool* found_final_value, bool* merge_in_progress) {
   Saver saver;
+  saver.status = s;
+  saver.found_final_value = found_final_value;
+  saver.merge_in_progress = merge_in_progress;
+  saver.key = &key;
+  saver.value = value;
+  saver.timestamp = timestamp;
+  saver.seq = kMaxSequenceNumber;
+  saver.mem = this;
+  saver.merge_context = merge_context;
+  saver.max_covering_tombstone_seq = max_covering_tombstone_seq;
+  saver.merge_operator = moptions_.merge_operator;
+  saver.logger = moptions_.info_log;
+  saver.inplace_update_support = moptions_.inplace_update_support;
+  saver.statistics = moptions_.statistics;
+  saver.clock = clock_;
+  saver.callback_ = callback;
+  saver.is_blob_index = is_blob_index;
+  saver.do_merge = do_merge;
+  saver.allow_data_in_errors = moptions_.allow_data_in_errors;
+  table_->Get(key, &saver, SaveValue);
+  *seq = saver.seq;
+}
+
+void MemTable::GetIntFromTable(const LookupKey& key,
+                            SequenceNumber max_covering_tombstone_seq,
+                            bool do_merge, ReadCallback* callback,
+                            bool* is_blob_index, int* value,
+                            std::string* timestamp, Status* s,
+                            MergeContext* merge_context, SequenceNumber* seq,
+                            bool* found_final_value, bool* merge_in_progress) {
+  IntSaver saver;
   saver.status = s;
   saver.found_final_value = found_final_value;
   saver.merge_in_progress = merge_in_progress;
