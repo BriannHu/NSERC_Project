@@ -479,6 +479,9 @@ class DB {
     return Get(options, DefaultColumnFamily(), key, value, timestamp);
   }
 
+  virtual Status GetInt(const ReadOptions& options, ColumnFamilyHandle* column_family, const Slice& key, int* value) = 0; 
+
+
   // Returns all the merge operands corresponding to the key. If the
   // number of merge operands in DB is greater than
   // merge_operands_options.expected_max_number_of_operands

@@ -87,6 +87,11 @@ class StackableDB : public DB {
                      PinnableSlice* value) override {
     return db_->Get(options, column_family, key, value);
   }
+  
+  using DB::GetInt; // fixed BlobDB error
+  virtual Status GetInt(const ReadOptions& options, ColumnFamilyHandle* column_family, const Slice& key, int* value) override {
+    return db_->GetInt(options, column_family, key, value);
+  }
 
   using DB::GetMergeOperands;
   virtual Status GetMergeOperands(
