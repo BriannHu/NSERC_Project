@@ -75,6 +75,34 @@ class MemTableListVersion {
                is_blob_index);
   }
 
+
+  // called from db_impl_readonly.cc
+  // only one sequence number as parameter
+  
+  // "connected" from db_impl.cc
+  // called withint GetIntImpl() function
+
+  // imported from db/memtable.h
+  // key difference is there's no more `bool do_merge=true` parameter 
+  bool GetInt(const LookupKey& key, int* value, std::string* timestamp,
+           Status* s, MergeContext* merge_context,
+           SequenceNumber* max_covering_tombstone_seq,
+           const ReadOptions& read_opts, ReadCallback* callback = nullptr,
+           bool* is_blob_index = nullptr) {
+    SequenceNumber seq;
+    return GetInt(key, value, timestamp, s, merge_context,
+               max_covering_tombstone_seq, &seq, read_opts, callback,
+               is_blob_index);
+  }
+
+  bool GetInt(const LookupKey& key, int* value, std::string* timestamp,
+           Status* s, MergeContext* merge_context,
+           SequenceNumber* max_covering_tombstone_seq, SequenceNumber* seq,
+           const ReadOptions& read_opts, ReadCallback* callback = nullptr,
+           bool* is_blob_index = nullptr);
+
+
+
   void MultiGet(const ReadOptions& read_options, MultiGetRange* range,
                 ReadCallback* callback);
 
@@ -158,6 +186,17 @@ class MemTableListVersion {
                    SequenceNumber* seq, const ReadOptions& read_opts,
                    ReadCallback* callback = nullptr,
                    bool* is_blob_index = nullptr);
+
+  bool GetIntFromList(std::list<MemTable*>* list, const LookupKey& key,
+                   int* value, std::string* timestamp, Status* s,
+                   MergeContext* merge_context,
+                   SequenceNumber* max_covering_tombstone_seq,
+                   SequenceNumber* seq, const ReadOptions& read_opts,
+                   ReadCallback* callback = nullptr,
+                   bool* is_blob_index = nullptr);
+
+
+
 
   void AddMemTable(MemTable* m);
 

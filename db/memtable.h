@@ -243,6 +243,24 @@ class MemTable {
                is_blob_index, do_merge);
   }
 
+  // called from db_impl_readonly.cc
+  // only one sequence number as parameter
+  
+  // "connected" from db_impl.cc
+  // called withint GetIntImpl() function 
+  bool GetInt(const LookupKey& key, int* value, std::string* timestamp,
+           Status* s, MergeContext* merge_context,
+           SequenceNumber* max_covering_tombstone_seq,
+           const ReadOptions& read_opts, ReadCallback* callback = nullptr,
+           bool* is_blob_index = nullptr, bool do_merge = true) {
+    SequenceNumber seq;
+    return GetInt(key, value, timestamp, s, merge_context,
+               max_covering_tombstone_seq, &seq, read_opts, callback,
+               is_blob_index, do_merge);
+  }
+
+
+
   bool GetInt(const LookupKey& key, int* value, std::string* timestamp,
            Status* s, MergeContext* merge_context,
            SequenceNumber* max_covering_tombstone_seq, SequenceNumber* seq,

@@ -112,6 +112,19 @@ bool MemTableListVersion::Get(const LookupKey& key, std::string* value,
                      is_blob_index);
 }
 
+bool MemTableListVersion::GetInt(const LookupKey& key, int* value,
+                              std::string* timestamp, Status* s,
+                              MergeContext* merge_context,
+                              SequenceNumber* max_covering_tombstone_seq,
+                              SequenceNumber* seq, const ReadOptions& read_opts,
+                              ReadCallback* callback, bool* is_blob_index) {
+  return GetIntFromList(&memlist_, key, value, timestamp, s, merge_context,
+                     max_covering_tombstone_seq, seq, read_opts, callback,
+                     is_blob_index);
+}
+
+
+
 void MemTableListVersion::MultiGet(const ReadOptions& read_options,
                                    MultiGetRange* range,
                                    ReadCallback* callback) {
@@ -157,6 +170,41 @@ bool MemTableListVersion::GetFromList(
     SequenceNumber current_seq = kMaxSequenceNumber;
 
     bool done = memtable->Get(key, value, timestamp, s, merge_context,
+                              max_covering_tombstone_seq, &current_seq,
+                              read_opts, callback, is_blob_index);
+    if (*seq == kMaxSequenceNumber) {
+      // Store the most recent sequence number of any operation on this key.
+      // Since we only care about the most recent change, we only need to
+      // return the first operation found when searching memtables in
+      // reverse-chronological order.
+      // current_seq would be equal to kMaxSequenceNumber if the value was to be
+      // skipped. This allows seq to be assigned again when the next value is
+      // read.
+      *seq = current_seq;
+    }
+
+    if (done) {
+      assert(*seq != kMaxSequenceNumber || s->IsNotFound());
+      return true;
+    }
+    if (!done && !s->ok() && !s->IsMergeInProgress() && !s->IsNotFound()) {
+      return false;
+    }
+  }
+  return false;
+}
+
+bool MemTableListVersion::GetIntFromList(
+    std::list<MemTable*>* list, const LookupKey& key, int* value,
+    std::string* timestamp, Status* s, MergeContext* merge_context,
+    SequenceNumber* max_covering_tombstone_seq, SequenceNumber* seq,
+    const ReadOptions& read_opts, ReadCallback* callback, bool* is_blob_index) {
+  *seq = kMaxSequenceNumber;
+
+  for (auto& memtable : *list) {
+    SequenceNumber current_seq = kMaxSequenceNumber;
+
+    bool done = memtable->GetInt(key, value, timestamp, s, merge_context,
                               max_covering_tombstone_seq, &current_seq,
                               read_opts, callback, is_blob_index);
     if (*seq == kMaxSequenceNumber) {
