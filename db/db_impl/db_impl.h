@@ -170,6 +170,11 @@ class DBImpl : public DB {
                      ColumnFamilyHandle* column_family, const Slice& key,
                      PinnableSlice* value, std::string* timestamp) override;
 
+  using DB::GetInt;
+  virtual Status GetInt(const ReadOptions& options,
+                     ColumnFamilyHandle* column_family, const Slice& key,
+                     int* value) override;
+   
   using DB::GetMergeOperands;
   Status GetMergeOperands(const ReadOptions& options,
                           ColumnFamilyHandle* column_family, const Slice& key,
@@ -507,6 +512,27 @@ class DBImpl : public DB {
     int* number_of_operands = nullptr;
   };
 
+
+  struct GetIntImplOptions {
+    ColumnFamilyHandle* column_family = nullptr;
+    int* value = nullptr;
+    std::string* timestamp = nullptr;
+    bool* value_found = nullptr;
+    ReadCallback* callback = nullptr;
+    bool* is_blob_index = nullptr;
+    // If true return value associated with key via value pointer else return
+    // all merge operands for key via merge_operands pointer
+    bool get_value = true;
+    // Pointer to an array of size
+    // get_merge_operands_options.expected_max_number_of_operands allocated by
+    // user
+    PinnableSlice* merge_operands = nullptr;
+    GetMergeOperandsOptions* get_merge_operands_options = nullptr;
+    int* number_of_operands = nullptr;
+  };
+
+
+
   // Function that Get and KeyMayExist call with no_io true or false
   // Note: 'value_found' from KeyMayExist propagates here
   // This function is also called by GetMergeOperands
@@ -516,6 +542,9 @@ class DBImpl : public DB {
   // get_impl_options.key via get_impl_options.merge_operands
   Status GetImpl(const ReadOptions& options, const Slice& key,
                  GetImplOptions& get_impl_options);
+
+  Status GetIntImpl(const ReadOptions& options, const Slice& key,
+                 GetIntImplOptions& get_int_impl_options);
 
   // If `snapshot` == kMaxSequenceNumber, set a recent one inside the file.
   ArenaWrappedDBIter* NewIteratorImpl(const ReadOptions& options,

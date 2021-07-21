@@ -28,6 +28,9 @@ class DBImplReadOnly : public DBImpl {
                      ColumnFamilyHandle* column_family, const Slice& key,
                      PinnableSlice* value) override;
 
+  using DB::GetInt;
+  virtual Status GetInt(const ReadOptions& options, ColumnFamilyHandle* column_family, const Slice& key, int* value) override; 
+
   // TODO: Implement ReadOnly MultiGet?
 
   using DBImpl::NewIterator;

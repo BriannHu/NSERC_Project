@@ -70,6 +70,55 @@ Status DBImplReadOnly::Get(const ReadOptions& read_options,
   return s;
 }
 
+// Implementations of the DB interface FOR CUSTOM GetInt()
+Status DBImplReadOnly::GetInt(const ReadOptions& read_options,
+                           ColumnFamilyHandle* column_family, const Slice& key,
+                           int* value) {
+  // TODO: stopwatch DB_GET needed?, perf timer needed?
+  PERF_TIMER_GUARD(get_snapshot_time);
+  Status s;
+  SequenceNumber snapshot = versions_->LastSequence();
+  auto cfh = static_cast_with_check<ColumnFamilyHandleImpl>(column_family);
+  auto cfd = cfh->cfd();
+  if (tracer_) {
+    InstrumentedMutexLock lock(&trace_mutex_);
+    if (tracer_) {
+      tracer_->Get(column_family, key);
+    }
+  }
+  SuperVersion* super_version = cfd->GetSuperVersion();
+  MergeContext merge_context;
+  SequenceNumber max_covering_tombstone_seq = 0;
+  LookupKey lkey(key, snapshot);
+  PERF_TIMER_STOP(get_snapshot_time);
+  /*
+  if (super_version->mem->GetInt(lkey, pinnable_val->GetSelf(),
+                              nullptr, &s, &merge_context,
+                              &max_covering_tombstone_seq, read_options)) {
+    pinnable_val->PinSelf();
+    RecordTick(stats_, MEMTABLE_HIT);
+  } else {
+    PERF_TIMER_GUARD(get_from_output_files_time);
+    super_version->current->Get(read_options, lkey, pinnable_val,
+                                timestamp=nullptr, &s, &merge_context,
+                                &max_covering_tombstone_seq);
+    RecordTick(stats_, MEMTABLE_MISS);
+  }
+	*/
+  if (super_version->mem->GetInt(lkey, value, nullptr, &s, &merge_context, &max_covering_tombstone_seq, read_options)) {
+	printf("Found\n");
+  } 
+
+  RecordTick(stats_, NUMBER_KEYS_READ);
+  // size_t size = pinnable_val->size();
+  //RecordTick(stats_, BYTES_READ, size);
+  //RecordInHistogram(stats_, BYTES_PER_READ, size);
+  //PERF_COUNTER_ADD(get_read_bytes, size);
+  return s;
+}
+
+
+
 Iterator* DBImplReadOnly::NewIterator(const ReadOptions& read_options,
                                       ColumnFamilyHandle* column_family) {
   auto cfh = static_cast_with_check<ColumnFamilyHandleImpl>(column_family);
