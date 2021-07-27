@@ -352,6 +352,11 @@ class DB {
     return Put(options, DefaultColumnFamily(), key, value);
   }
 
+/*
+  virtual Status PutInt(const WriteOptions& options,
+                     ColumnFamilyHandle* column_family, const Slice& key,
+                     int& value) = 0;
+*/
   // Remove the database entry (if any) for "key".  Returns OK on
   // success, and a non-OK status on error.  It is not an error if "key"
   // did not exist in the database.

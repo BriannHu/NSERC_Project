@@ -80,6 +80,15 @@ class StackableDB : public DB {
                      const Slice& val) override {
     return db_->Put(options, column_family, key, val);
   }
+/*
+  using DB::PutInt;
+  virtual Status PutInt(const WriteOptions& options,
+                     ColumnFamilyHandle* column_family, const Slice& key,
+                     int& val) override {
+    return db_->PutInt(options, column_family, key, val);
+  }
+*/
+
 
   using DB::Get;
   virtual Status Get(const ReadOptions& options,

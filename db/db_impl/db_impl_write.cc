@@ -22,6 +22,14 @@ Status DBImpl::Put(const WriteOptions& o, ColumnFamilyHandle* column_family,
                    const Slice& key, const Slice& val) {
   return DB::Put(o, column_family, key, val);
 }
+/*
+// Convenience method for PutInt()
+// Actual implementation of DB::PutInt is below (~line 2000)
+Status DBImpl::PutInt(const WriteOptions& o, ColumnFamilyHandle* column_family,
+                   const Slice& key, int& val) {
+  return DB::PutInt(o, column_family, key, val);
+}
+*/
 
 Status DBImpl::Merge(const WriteOptions& o, ColumnFamilyHandle* column_family,
                      const Slice& key, const Slice& val) {
@@ -2006,6 +2014,41 @@ Status DB::Put(const WriteOptions& opt, ColumnFamilyHandle* column_family,
   }
   return Write(opt, &batch);
 }
+/*
+// Default implementations of convenience methods that subclasses of DB
+// can call if they wish
+Status DB::PutInt(const WriteOptions& opt, ColumnFamilyHandle* column_family,
+               const Slice& key, int& value) {
+  if (nullptr == opt.timestamp) {
+    // Pre-allocate size of write batch conservatively.
+    // 8 bytes are taken by header, 4 bytes for count, 1 byte for type,
+    // and we allocate 11 extra bytes for key length, as well as value length.
+    WriteBatch batch(key.size() + value.size() + 24);
+    Status s = batch.Put(column_family, key, value);
+    if (!s.ok()) {
+      return s;
+    }
+    return Write(opt, &batch);
+  }
+  const Slice* ts = opt.timestamp;
+  assert(nullptr != ts);
+  size_t ts_sz = ts->size();
+  assert(column_family->GetComparator());
+  assert(ts_sz == column_family->GetComparator()->timestamp_size());
+  WriteBatch batch(key.size() + ts_sz + value.size() + 24, 0,
+                   ts_sz);
+  Status s = batch.Put(column_family, key, value);
+  if (!s.ok()) {
+    return s;
+  }
+  s = batch.AssignTimestamp(*ts);
+  if (!s.ok()) {
+    return s;
+  }
+  return Write(opt, &batch);
+}
+*/
+
 
 Status DB::Delete(const WriteOptions& opt, ColumnFamilyHandle* column_family,
                   const Slice& key) {

@@ -146,6 +146,12 @@ class DBImpl : public DB {
   virtual Status Put(const WriteOptions& options,
                      ColumnFamilyHandle* column_family, const Slice& key,
                      const Slice& value) override;
+/*
+  using DB::PutInt;
+  virtual Status PutInt(const WriteOptions& options,
+                     ColumnFamilyHandle* column_family, const Slice& key,
+                     int& value) override;
+*/
   using DB::Merge;
   virtual Status Merge(const WriteOptions& options,
                        ColumnFamilyHandle* column_family, const Slice& key,
